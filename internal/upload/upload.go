@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -14,13 +15,16 @@ import (
 	"time"
 )
 
-func retry(fn func() error, maxTries int, initialRetryDelay time.Duration) error {
+func retry(fn func() error, filePath string, maxTries int, initialRetryDelay time.Duration, ctx context.Context) error {
+    logFile := ctx.Value("logFile").(*os.File)
+    log.SetOutput(logFile)
 	for i := 0; i <= maxTries; i++ {
 		err := fn()
 		if err == nil {
 			return nil
 		}
 		if i == maxTries {
+            log.Println("Error uploading %s: %v", filePath, err)
 			return fmt.Errorf("Failed to Upload File: %w", err)
 		}
 		time.Sleep(initialRetryDelay)
@@ -100,5 +104,5 @@ func UploadFile(ctx context.Context, filePath string, baseUrl string, token stri
 		}
 
         return nil
-	}, 3, time.Second)
+	}, filePath, 3, time.Second, ctx)
 }

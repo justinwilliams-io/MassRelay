@@ -11,7 +11,6 @@ import (
 	"mass-relay/internal/upload"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,8 +39,18 @@ func getId(prefixToID map[string]string, filename string) string {
 
 func main() {
 	var isSimulation bool
-    flag.BoolVar(&isSimulation, "simulate", false, "Simulate file transfers")
-    flag.Parse()
+	flag.BoolVar(&isSimulation, "simulate", false, "Simulate file transfers")
+	flag.Parse()
+
+	startTime := time.Now()
+
+	logFileName := fmt.Sprintf("error_log_%s.txt", startTime.Format("2006-01-02_15:04:05"))
+
+	logfile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Error opening log file:", err)
+	}
+	defer logfile.Close()
 
 	csvFile, err := os.Open("ids.csv")
 	if err != nil {
@@ -95,10 +104,7 @@ func main() {
 
 	finishedBytes := int64(0)
 
-	startTime := time.Now()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	ctx := context.WithValue(context.Background(), "logFile", logfile)
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, cfg.MaxConcurrentUplaods)
@@ -117,9 +123,9 @@ func main() {
 
 	updateChan <- struct{}{}
 
-	for i, file := range files {
-		sem <- struct{}{}
+	for _, file := range files {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(file string) {
 			defer func() {
 				<-sem
@@ -129,7 +135,7 @@ func main() {
 				if oppId == "" {
 					errored = append(errored, file)
 				}
-				inProgressFiles = removeFileFromInProgress(inProgressFiles, "Example file "+strconv.Itoa(i)+".pdf")
+				inProgressFiles = removeFileFromInProgress(inProgressFiles, file+" - "+oppId)
 				completedFiles++
 				finishedBytes += fileInfo.Size()
 				updateChan <- struct{}{}
@@ -139,18 +145,18 @@ func main() {
 			fileInfo, _ := os.Stat(file)
 			fileSize := fileInfo.Size()
 			oppId := getId(prefixToID, fileInfo.Name())
-			inProgressFiles = append(inProgressFiles, "Example file "+strconv.Itoa(i)+".pdf")
+			inProgressFiles = append(inProgressFiles, file+" - "+oppId)
 			updateChan <- struct{}{}
 
 			if isSimulation {
 				time.Sleep(time.Duration(fileSize) * 5000)
 			} else {
-                queryParams := map[string]string{
-                    "api-version": "2.0",
-                    "path": "UCC Filing",
-                    "type": "1009",
-                    "salesforceId": oppId,
-                }
+				queryParams := map[string]string{
+					"api-version":  "2.0",
+					"path":         "UCC Filing",
+					"type":         "1009",
+					"salesforceId": oppId,
+				}
 
 				err := upload.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token, queryParams)
 				if err != nil {
