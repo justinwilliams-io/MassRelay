@@ -7,10 +7,10 @@ import (
 )
 
 func UpdateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string, startTime time.Time) {
-	fmt.Print("\033[2J\033[H") // Clear the screen
+	fmt.Print("\033[2J\033[H")
 
 	fmt.Println("--------------------------------------------------")
-	fmt.Println("| File Migration Tool |")
+	fmt.Println("| Mass Relay - Upload All of the Files           |")
 	fmt.Println("--------------------------------------------------")
 	fmt.Printf("| Total Files: %d | Completed: %d/%d\n", totalFiles, completedFiles, totalFiles)
 	fmt.Println("|")
@@ -19,7 +19,7 @@ func UpdateDisplay(totalFiles int, completedFiles int, inProgressFiles []string,
 		fmt.Printf("|   - %s\n", file)
 	}
 	fmt.Println("|")
-	fmt.Println("| Errored:") // Replace 0 with the actual number of errors
+	fmt.Println("| Errored:")
 	for _, file := range errored {
 		fmt.Printf("|   - %s\n", file)
 	}
