@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,7 +68,7 @@ func getId(prefixToID map[string]string, filename string) string {
 	return returnId
 }
 
-func updateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string) {
+func updateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string, startTime time.Time) {
 	fmt.Print("\033[2J\033[H") // Clear the screen
 
 	fmt.Println("--------------------------------------------------")
@@ -84,6 +85,7 @@ func updateDisplay(totalFiles int, completedFiles int, inProgressFiles []string,
 	for _, file := range errored {
 		fmt.Printf("|   - %s\n", file)
 	}
+	fmt.Println("|")
 	fmt.Println("--------------------------------------------------")
 
 	progressBarLength := 50
@@ -92,8 +94,12 @@ func updateDisplay(totalFiles int, completedFiles int, inProgressFiles []string,
 	progressBar := strings.Repeat("=", filledLength) + strings.Repeat("-", progressBarLength-filledLength)
 	fmt.Printf("\nProgress: [%s] %.2f%%\n", progressBar, progressPercentage*100)
 
-	remainingTime := time.Duration(totalBytes-finishedBytes) * 5000
-	fmt.Printf("Estimated Time Remaining: %s\n", remainingTime.String())
+	elapsedTime := time.Since(startTime)
+	if elapsedTime > 0 && completedFiles > 0 {
+        averageSpeed := float64(finishedBytes) / elapsedTime.Seconds()
+		remainingTime := time.Duration(float64(totalBytes - finishedBytes) / averageSpeed) * time.Second
+		fmt.Printf("Estimated Time Remaining: %s\n", remainingTime.String())
+	}
 }
 
 func main() {
@@ -151,6 +157,8 @@ func main() {
 
 	finishedBytes := int64(0)
 
+	startTime := time.Now()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
@@ -162,7 +170,7 @@ func main() {
 		for {
 			select {
 			case <-updateChan:
-				updateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored)
+				updateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime)
 			case <-ctx.Done():
 				return
 			}
@@ -171,7 +179,7 @@ func main() {
 
 	updateChan <- struct{}{}
 
-	for _, file := range files {
+	for i, file := range files {
 		sem <- struct{}{}
 		wg.Add(1)
 		go func(file string) {
@@ -183,7 +191,7 @@ func main() {
 				if oppId == "" {
 					errored = append(errored, file)
 				}
-				inProgressFiles = removeFileFromInProgress(inProgressFiles, fileInfo.Name()+" - "+oppId)
+				inProgressFiles = removeFileFromInProgress(inProgressFiles, "Example file "+strconv.Itoa(i)+".pdf")
 				completedFiles++
 				finishedBytes += fileInfo.Size()
 				updateChan <- struct{}{}
@@ -192,8 +200,8 @@ func main() {
 
 			fileInfo, _ := os.Stat(file)
 			fileSize := fileInfo.Size()
-			oppId := getId(prefixToID, fileInfo.Name())
-			inProgressFiles = append(inProgressFiles, fileInfo.Name()+" - "+oppId)
+			// oppId := getId(prefixToID, fileInfo.Name())
+			inProgressFiles = append(inProgressFiles, "Example file "+strconv.Itoa(i)+".pdf")
 			updateChan <- struct{}{}
 
 			if isSimulation {
