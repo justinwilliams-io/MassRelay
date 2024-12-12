@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"mass-relay/internal/config"
 	"mass-relay/internal/storage"
-	"net/http"
+	"mass-relay/internal/ui"
+	"mass-relay/internal/upload"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,38 +16,6 @@ import (
 	"sync"
 	"time"
 )
-
-type FileInfo struct {
-	Name string
-	Size int64
-}
-
-func UploadFile(ctx context.Context, filePath string, url string, token string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, file)
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP reqeust: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected HTTP status code: %d", resp.StatusCode)
-	}
-
-	return nil
-}
 
 func removeFileFromInProgress(files []string, fileToRemove string) []string {
 	for i, f := range files {
@@ -68,42 +38,10 @@ func getId(prefixToID map[string]string, filename string) string {
 	return returnId
 }
 
-func updateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string, startTime time.Time) {
-	fmt.Print("\033[2J\033[H") // Clear the screen
-
-	fmt.Println("--------------------------------------------------")
-	fmt.Println("| File Migration Tool |")
-	fmt.Println("--------------------------------------------------")
-	fmt.Printf("| Total Files: %d | Completed: %d/%d\n", totalFiles, completedFiles, totalFiles)
-	fmt.Println("|")
-	fmt.Println("| In Progress:")
-	for _, file := range inProgressFiles {
-		fmt.Printf("|   - %s\n", file)
-	}
-	fmt.Println("|")
-	fmt.Println("| Errored:") // Replace 0 with the actual number of errors
-	for _, file := range errored {
-		fmt.Printf("|   - %s\n", file)
-	}
-	fmt.Println("|")
-	fmt.Println("--------------------------------------------------")
-
-	progressBarLength := 50
-	progressPercentage := float64(completedFiles) / float64(totalFiles)
-	filledLength := int(progressPercentage * float64(progressBarLength))
-	progressBar := strings.Repeat("=", filledLength) + strings.Repeat("-", progressBarLength-filledLength)
-	fmt.Printf("\nProgress: [%s] %.2f%%\n", progressBar, progressPercentage*100)
-
-	elapsedTime := time.Since(startTime)
-	if elapsedTime > 0 && completedFiles > 0 {
-        averageSpeed := float64(finishedBytes) / elapsedTime.Seconds()
-		remainingTime := time.Duration(float64(totalBytes - finishedBytes) / averageSpeed) * time.Second
-		fmt.Printf("Estimated Time Remaining: %s\n", remainingTime.String())
-	}
-}
-
 func main() {
-	isSimulation := true
+	var isSimulation bool
+    flag.BoolVar(&isSimulation, "simulate", false, "Simulate file transfers")
+    flag.Parse()
 
 	csvFile, err := os.Open("ids.csv")
 	if err != nil {
@@ -170,7 +108,7 @@ func main() {
 		for {
 			select {
 			case <-updateChan:
-				updateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime)
+				ui.UpdateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime)
 			case <-ctx.Done():
 				return
 			}
@@ -207,7 +145,7 @@ func main() {
 			if isSimulation {
 				time.Sleep(time.Duration(fileSize) * 5000)
 			} else {
-				err := UploadFile(ctx, file, cfg.RemoteURL, cfg.Token)
+				err := upload.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token)
 				if err != nil {
 					fmt.Printf("Error uploading %s: %v\n", file, err)
 				}
