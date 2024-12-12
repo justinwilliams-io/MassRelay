@@ -72,10 +72,9 @@ func UploadFile(ctx context.Context, filePath string, url string, token string) 
     }
 
     // Check for errors in the response
-    if err := checkResponseForErrors(responseBody); err != nil {
-
-        return err
-    }
+    // if err := checkResponseForErrors(responseBody); err != nil {
+    //     return err
+    // }
 
     // Handle the successful response (e.g., update UI, create records)
     // ...
