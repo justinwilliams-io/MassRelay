@@ -138,14 +138,21 @@ func main() {
 
 			fileInfo, _ := os.Stat(file)
 			fileSize := fileInfo.Size()
-			// oppId := getId(prefixToID, fileInfo.Name())
+			oppId := getId(prefixToID, fileInfo.Name())
 			inProgressFiles = append(inProgressFiles, "Example file "+strconv.Itoa(i)+".pdf")
 			updateChan <- struct{}{}
 
 			if isSimulation {
 				time.Sleep(time.Duration(fileSize) * 5000)
 			} else {
-				err := upload.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token)
+                queryParams := map[string]string{
+                    "api-version": "2.0",
+                    "path": "UCC Filing",
+                    "type": "1009",
+                    "salesforceId": oppId,
+                }
+
+				err := upload.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token, queryParams)
 				if err != nil {
 					fmt.Printf("Error uploading %s: %v\n", file, err)
 				}
