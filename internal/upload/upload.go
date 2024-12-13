@@ -106,5 +106,5 @@ func (u *DefaultUploader) UploadFile(ctx context.Context, filePath string, baseU
 		}
 
         return nil
-	}, filePath, 3, time.Second, ctx)
+	}, filePath, 1, time.Second, ctx)
 }
