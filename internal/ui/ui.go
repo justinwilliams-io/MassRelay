@@ -6,22 +6,32 @@ import (
 	"time"
 )
 
-func UpdateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string, startTime time.Time) {
-	fmt.Print("\033[2J\033[H")
+func UpdateDisplay(totalFiles int, completedFiles int, inProgressFiles []string, totalBytes, finishedBytes int64, errored []string, startTime time.Time, isSimulation bool) {
+    spinnerChars := []string{"/", "-", "\\", "|"}
+    spinnerIndex := int(time.Now().UnixNano() / 100) % len(spinnerChars)
+
+    var simulationText string
+    if isSimulation {
+        simulationText = " -\x1b[33m SIMULATION MODE\x1b[0m"
+    } else {
+        simulationText = ""
+    }
+
+    fmt.Print("\033[2J\033[H")
 
 	fmt.Println("--------------------------------------------------")
-	fmt.Println("| Mass Relay - Upload All of the Files           |")
+	fmt.Printf("| Mass Relay - Upload All of the Files%s\n", simulationText)
 	fmt.Println("--------------------------------------------------")
 	fmt.Printf("| Total Files: %d | Completed: %d/%d\n", totalFiles, completedFiles, totalFiles)
 	fmt.Println("|")
 	fmt.Println("| In Progress:")
 	for _, file := range inProgressFiles {
-		fmt.Printf("|   - %s\n", file)
+		fmt.Printf("|   %s %s\n", spinnerChars[spinnerIndex], file)
 	}
 	fmt.Println("|")
 	fmt.Println("| Errored:")
 	for _, file := range errored {
-		fmt.Printf("|   - %s\n", file)
+        fmt.Printf("|   - %s\n", file)
 	}
 	fmt.Println("|")
 	fmt.Println("--------------------------------------------------")

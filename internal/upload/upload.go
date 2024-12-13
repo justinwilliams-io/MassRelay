@@ -24,7 +24,7 @@ func retry(fn func() error, filePath string, maxTries int, initialRetryDelay tim
 			return nil
 		}
 		if i == maxTries {
-            log.Println("Error uploading %s: %v", filePath, err)
+            log.Printf("Error uploading %s: %v", filePath, err)
 			return fmt.Errorf("Failed to Upload File: %w", err)
 		}
 		time.Sleep(initialRetryDelay)
@@ -33,7 +33,9 @@ func retry(fn func() error, filePath string, maxTries int, initialRetryDelay tim
 	return fmt.Errorf("Failed after max attempts: %d", maxTries)
 }
 
-func UploadFile(ctx context.Context, filePath string, baseUrl string, token string, queryParams map[string]string) error {
+type DefaultUploader struct{}
+
+func (u *DefaultUploader) UploadFile(ctx context.Context, filePath string, baseUrl string, token string, queryParams map[string]string) error {
 	return retry(func() error {
         u, err := url.Parse(baseUrl)
         if err != nil {

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"mass-relay/internal/config"
+	"mass-relay/internal/model"
 	"mass-relay/internal/storage"
 	"mass-relay/internal/ui"
 	"mass-relay/internal/upload"
@@ -107,66 +108,80 @@ func main() {
 	ctx := context.WithValue(context.Background(), "logFile", logfile)
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, cfg.MaxConcurrentUplaods)
+	sem := make(chan struct{}, cfg.MaxConcurrentUploads)
 
-	updateChan := make(chan struct{}, 1)
+	messages := make(chan model.Message, 1)
 	go func() {
 		for {
 			select {
-			case <-updateChan:
-				ui.UpdateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime)
+			case msg := <-messages:
+				switch msg.IsAdding {
+				case true:
+					inProgressFiles = append(inProgressFiles, msg.FileName)
+				case false:
+					inProgressFiles = removeFileFromInProgress(inProgressFiles, msg.FileName)
+				}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	updateChan <- struct{}{}
+	go func() {
+		ticker := time.NewTicker(time.Second / 9)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				ui.UpdateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime, isSimulation)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	var uploader model.Uploader = &upload.DefaultUploader{}
 
 	for _, file := range files {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(file string) {
-			defer func() {
-				<-sem
-
-				fileInfo, _ := os.Stat(file)
-				oppId := getId(prefixToID, fileInfo.Name())
-				if oppId == "" {
-					errored = append(errored, file)
-				}
-				inProgressFiles = removeFileFromInProgress(inProgressFiles, file+" - "+oppId)
-				completedFiles++
-				finishedBytes += fileInfo.Size()
-				updateChan <- struct{}{}
-				wg.Done()
-			}()
-
 			fileInfo, _ := os.Stat(file)
-			fileSize := fileInfo.Size()
-			oppId := getId(prefixToID, fileInfo.Name())
-			inProgressFiles = append(inProgressFiles, file+" - "+oppId)
-			updateChan <- struct{}{}
+            messages <- model.Message{
+                IsAdding: true,
+                FileName: fileInfo.Name(),
+            }
+
+			queryParams := map[string]string{}
 
 			if isSimulation {
-				time.Sleep(time.Duration(fileSize) * 5000)
-			} else {
-				queryParams := map[string]string{
-					"api-version":  "2.0",
-					"path":         "UCC Filing",
-					"type":         "1009",
-					"salesforceId": oppId,
-				}
-
-				err := upload.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token, queryParams)
+				err := uploader.UploadFile(ctx, file, "http://localhost:8080", cfg.Token, queryParams)
 				if err != nil {
+					errored = append(errored, file)
+					fmt.Printf("Error uploading %s: %v\n", file, err)
+				}
+			} else {
+				err := uploader.UploadFile(ctx, file, cfg.RemoteURL, cfg.Token, queryParams)
+				if err != nil {
+					errored = append(errored, file)
 					fmt.Printf("Error uploading %s: %v\n", file, err)
 				}
 			}
+
+			completedFiles++
+			finishedBytes += fileInfo.Size()
+
+            messages <- model.Message{
+                IsAdding: false,
+                FileName: fileInfo.Name(),
+            }
+			wg.Done()
+
+			<-sem
 		}(file)
 	}
 
 	wg.Wait()
-	close(updateChan)
+	ctx.Done()
 	fmt.Println("Migration Complete!")
 }
