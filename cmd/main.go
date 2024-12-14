@@ -10,6 +10,7 @@ import (
 	"mass-relay/internal/storage"
 	"mass-relay/internal/ui"
 	"mass-relay/internal/upload"
+	simulationserver "mass-relay/simulation-server"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,6 +108,12 @@ func main() {
 
 	ctx := context.WithValue(context.Background(), "logFile", logfile)
 
+	if isSimulation {
+		go func() {
+			simulationserver.StartServer(ctx)
+		}()
+	}
+
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, cfg.MaxConcurrentUploads)
 
@@ -147,10 +154,10 @@ func main() {
 		sem <- struct{}{}
 		go func(file string) {
 			fileInfo, _ := os.Stat(file)
-            messages <- model.Message{
-                IsAdding: true,
-                FileName: fileInfo.Name(),
-            }
+			messages <- model.Message{
+				IsAdding: true,
+				FileName: fileInfo.Name(),
+			}
 
 			queryParams := map[string]string{}
 
@@ -171,10 +178,10 @@ func main() {
 			completedFiles++
 			finishedBytes += fileInfo.Size()
 
-            messages <- model.Message{
-                IsAdding: false,
-                FileName: fileInfo.Name(),
-            }
+			messages <- model.Message{
+				IsAdding: false,
+				FileName: fileInfo.Name(),
+			}
 			wg.Done()
 
 			<-sem
@@ -182,6 +189,7 @@ func main() {
 	}
 
 	wg.Wait()
+	ui.UpdateDisplay(totalFiles, completedFiles, inProgressFiles, totalBytes, finishedBytes, errored, startTime, isSimulation)
 	ctx.Done()
 	fmt.Println("Migration Complete!")
 }
