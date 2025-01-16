@@ -12,6 +12,12 @@ MassRelay is a Go-based tool for uploading multiple files to an HTTP server effi
 - **Simulation Mode**: Spins up a local server that randomly fails 10% of uploads to test the retry mechanism.
 - **Configurable**: Uses a configuration file for settings.
 
+## Demo
+
+Here's a quick demo of MassRelay in action:
+
+![MassRelay Demo]('./Mass Relay Demo.gif')
+
 ## Installation
 
 ### Prerequisites
