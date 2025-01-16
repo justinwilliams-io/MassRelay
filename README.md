@@ -37,7 +37,7 @@ MassRelay is a Go-based tool for uploading multiple files to an HTTP server effi
 Run the tool from the directory containing the files you want to upload:
 
 ```sh
-./massrelay
+./massrelay```
 
 By default, it will look for configuration in $HOME/mass-relay/config.yaml.```
 
