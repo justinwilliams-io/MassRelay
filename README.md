@@ -16,7 +16,7 @@ MassRelay is a Go-based tool for uploading multiple files to an HTTP server effi
 
 Here's a quick demo of MassRelay in action:
 
-![image info]('./Mass Relay Demo.gif')
+![image info](https://github.com/justinwilliams-io/MassRelay/blob/master/Mass%20Relay%20Demo.gif)
 
 ## Installation
 
