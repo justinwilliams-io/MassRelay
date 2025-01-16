@@ -36,8 +36,9 @@ MassRelay is a Go-based tool for uploading multiple files to an HTTP server effi
 
 Run the tool from the directory containing the files you want to upload:
 
-    ```sh
-    ./massrelay
+```sh
+./massrelay
+```
 
 By default, it will look for configuration in $HOME/mass-relay/config.yaml.
 
@@ -45,8 +46,9 @@ By default, it will look for configuration in $HOME/mass-relay/config.yaml.
 
 To run in simulation mode, add the --simulate flag
 
-    ```sh
-    ./massrelay --simulate
+```sh
+./massrelay --simulate
+```
 
 This will start a local server on port 8080 with a 10% failure rate for uploads.
 
@@ -62,10 +64,11 @@ MassRelay uses a YAML configuration file located in the user's config directory:
 
 Here's an example of what the config might look like:
 
-    ```yaml
-    remote_url: https://your-upload-endpoint
-    max_concurrent_uploads: 3
-    log_level: info  # Not implemented yet
-    token: your_api_token
+```yaml
+remote_url: https://your-upload-endpoint
+max_concurrent_uploads: 3
+log_level: info  # Not implemented yet
+token: your_api_token`
+```
 
 
